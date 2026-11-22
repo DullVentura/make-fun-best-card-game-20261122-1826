@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ember Sigil Duel — a 1v1 card battler</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0c1a12;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; color: #f3ead8; }
+  #app { height: 100%; display: flex; flex-direction: column; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  .topbar { height: 54px; flex: 0 0 54px; display: flex; align-items: center; gap: 16px;
+    padding: 0 18px; background: #101d16; border-bottom: 2px solid #d19a2e55; }
+  .topbar-title { font-size: 20px; font-weight: 800; letter-spacing: 2px; color: #f5c542; }
+  .topbar-round { flex: 1; text-align: center; font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #cfe3d2; }
+  .topbar-btns { display: flex; gap: 8px; }
+  .icon-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #d19a2e88; background: #1d2f24;
+    color: #f5c542; font-size: 18px; font-weight: 800; cursor: pointer; }
+  .icon-btn:hover { background: #2a4232; }
+  .icon-btn.off { color: #888; text-decoration: line-through; }
+
+  .table { flex: 1; display: flex; flex-direction: column; padding: 10px 16px 12px; gap: 8px;
+    background: radial-gradient(ellipse at 50% 30%, #27603a 0%, #173a23 55%, #0e2417 100%);
+    border: 10px solid #4a2f1c; border-top: none; outline: 2px solid #d19a2e44; }
+  .row { display: flex; gap: 14px; align-items: stretch; }
+  .rival-row { flex: 0 0 178px; }
+  .mid-row { flex: 0 0 148px; }
+  .player-row { flex: 1; min-height: 0; }
+
+  .side-panel { width: 248px; flex: 0 0 248px; background: rgba(0,0,0,.38); border: 1px solid #ffffff22;
+    border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 900; float: left; margin-right: 10px; }
+  .rival-avatar { background: #172554; color: #7db8f0; border: 2px solid #3e9bde; }
+  .player-avatar { background: #7f1d1d; color: #ffb4b4; border: 2px solid #e5484d; }
+  .side-name { font-size: 17px; font-weight: 800; line-height: 44px; }
+  .ward { font-size: 14px; font-weight: 800; letter-spacing: 1px; }
+  .ward-glyph { font-size: 20px; margin-right: 6px; vertical-align: -2px; }
+  .life-bar { position: relative; height: 30px; background: #00000088; border-radius: 8px; overflow: hidden;
+    border: 1px solid #ffffff33; }
+  .life-fill { height: 100%; background: linear-gradient(90deg, #c22727, #e5484d); transition: width .3s; }
+  .life-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 900; letter-spacing: 1px; text-shadow: 0 1px 2px #000; }
+  .shield-pill { display: inline-block; margin-top: 2px; background: #3e9bde; color: #fff; font-size: 13px;
+    font-weight: 800; padding: 2px 10px; border-radius: 20px; }
+  .mana { font-size: 14px; font-weight: 700; color: #f5c542; }
+  .mana-dot { font-size: 13px; margin-right: 2px; color: #ffffff33; }
+  .mana-dot.on { color: #f5c542; text-shadow: 0 0 6px #f5c54288; }
+  .mana-num { margin-left: 6px; color: #fff; }
+  .mana-label { margin-right: 6px; letter-spacing: 1px; }
+
+  .rival-hand { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .player-hand { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 10px; min-width: 0; }
+  .deck-info { width: 120px; flex: 0 0 120px; align-self: center; text-align: center; font-size: 13px;
+    font-weight: 700; color: #cfe3d2; background: rgba(0,0,0,.3); border-radius: 8px; padding: 8px 4px; }
+
+  .field { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: rgba(0,0,0,.25); border: 1px dashed #ffffff2a; border-radius: 12px; padding: 6px; min-width: 0; }
+  .field-empty { color: #ffffff88; font-size: 14px; font-style: italic; }
+  .field-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .field-tag { font-size: 11px; font-weight: 800; letter-spacing: .5px; background: #00000088;
+    padding: 2px 8px; border-radius: 10px; }
+  .mid-center { width: 300px; flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px; }
+  .log { flex: 1; background: rgba(0,0,0,.35); border-radius: 10px; padding: 8px 10px; font-size: 13.5px;
+    line-height: 1.45; overflow: hidden; }
+  .log div:last-child { color: #ffe9a8; font-weight: 700; }
+  .end-btn { height: 44px; border: none; border-radius: 10px; background: linear-gradient(180deg, #e5484d, #a11d1d);
+    color: #fff; font-size: 17px; font-weight: 900; letter-spacing: 2px; cursor: pointer; }
+  .end-btn:hover:not(:disabled) { filter: brightness(1.15); }
+  .end-btn:disabled { opacity: .45; cursor: default; }
+  .end-btn.pulse { animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 #e5484d88; } 50% { box-shadow: 0 0 0 8px #e5484d00; } }
+  .help-card { width: 300px; flex: 0 0 300px; background: rgba(0,0,0,.35); border-radius: 10px; padding: 9px 12px;
+    font-size: 12.5px; line-height: 1.5; }
+  .help-card .sw { font-weight: 800; }
+  .sw.ember { color: #ff8a8a; } .sw.gale { color: #7ddb8a; } .sw.stone { color: #f5c542; } .sw.tide { color: #7db8f0; }
+
+  .card { position: relative; width: 128px; height: 186px; flex: 0 0 128px; border-radius: 12px;
+    background: linear-gradient(180deg, #fdf6e3, #efe3c2); color: #241a12; border: 3px solid #2b2118;
+    box-shadow: 0 4px 10px rgba(0,0,0,.5); cursor: pointer; transition: transform .15s, box-shadow .15s;
+    user-select: none; overflow: hidden; }
+  .card:hover { transform: translateY(-14px); box-shadow: 0 12px 22px rgba(0,0,0,.6); }
+  .card.unaffordable { opacity: .55; cursor: default; }
+  .card.unaffordable:hover { transform: none; box-shadow: 0 4px 10px rgba(0,0,0,.5); }
+  .card-cost { position: absolute; top: 6px; left: 6px; width: 30px; height: 30px; border-radius: 50%;
+    background: #2b2118; color: #f5c542; display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 900; }
+  .card-key { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 6px;
+    background: #ffffff88; border: 1px solid #2b211855; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #2b2118; }
+  .card-sigil { text-align: center; font-size: 34px; line-height: 1; margin-top: 30px; }
+  .card-power { text-align: center; font-size: 46px; font-weight: 900; line-height: 1.05; }
+  .card-kind { text-align: center; font-size: 13px; font-weight: 900; letter-spacing: 3px; margin-top: 2px; }
+  .card-name { text-align: center; font-size: 14px; font-weight: 800; margin-top: 4px; }
+  .card-sigil-name { text-align: center; font-size: 12px; font-weight: 700; color: #6b5a44; }
+  .card-note { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 11px;
+    font-weight: 800; color: #a11d1d; }
+  .card-small { width: 74px; height: 108px; flex-basis: 74px; border-width: 2px; border-radius: 8px; cursor: default; }
+  .card-small:hover { transform: none; }
+  .card-small .card-cost { width: 20px; height: 20px; font-size: 12px; top: 4px; left: 4px; }
+  .card-small .card-sigil { font-size: 22px; margin-top: 24px; }
+  .card-small .card-power { font-size: 30px; }
+  .card-small .card-kind { font-size: 8px; letter-spacing: 1.5px; }
+  .card-small .card-name { font-size: 8px; margin-top: 3px; white-space: nowrap; }
+  .card-small .card-sigil-name { display: none; }
+  .card-back { background: linear-gradient(135deg, #3b2a1a, #6b4423); border-color: #f5c542; cursor: default; }
+  .card-back:hover { transform: none; }
+  .card-back-glyph { text-align: center; font-size: 26px; color: #f5c542; margin-top: 34px; letter-spacing: 2px; }
+  .card-back-name { text-align: center; font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #f5c542; margin-top: 8px; }
+
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(5,10,7,.82); z-index: 10; }
+  .overlay.show { display: flex; }
+  .overlay-card { width: 640px; max-width: 92vw; text-align: center; background: linear-gradient(180deg, #1d2f24, #101d16);
+    border: 2px solid #d19a2e; border-radius: 18px; padding: 34px 40px; box-shadow: 0 20px 60px rgba(0,0,0,.7); }
+  .title-h { font-size: 62px; line-height: .95; margin: 0 0 10px; letter-spacing: 4px; color: #f5c542;
+    text-shadow: 0 4px 0 #7f1d1d, 0 8px 24px rgba(0,0,0,.6); }
+  .win-h { font-size: 72px; margin: 0 0 8px; letter-spacing: 6px; color: #7ddb8a; text-shadow: 0 4px 0 #14532d; }
+  .loss-h { font-size: 72px; margin: 0 0 8px; letter-spacing: 6px; color: #ff8a8a; text-shadow: 0 4px 0 #7f1d1d; }
+  .title-sub { font-size: 17px; line-height: 1.5; margin: 0 0 14px; color: #e8ddc4; }
+  .title-sigils { display: flex; justify-content: center; gap: 22px; font-size: 19px; font-weight: 900; margin-bottom: 14px; }
+  .title-how { font-size: 14.5px; line-height: 1.6; color: #cfe3d2; margin: 0 0 20px; }
+  .title-foot { font-size: 13px; color: #9db8a4; margin: 14px 0 0; }
+  .big-btn { border: none; border-radius: 12px; padding: 14px 34px; font-size: 20px; font-weight: 900;
+    letter-spacing: 2px; color: #fff; background: linear-gradient(180deg, #e5484d, #a11d1d); cursor: pointer; }
+  .big-btn:hover { filter: brightness(1.15); }
+  .stats { display: flex; justify-content: center; gap: 26px; margin: 6px 0 22px; }
+  .stats div { display: flex; flex-direction: column; }
+  .stats b { font-size: 30px; color: #f5c542; }
+  .stats span { font-size: 12px; letter-spacing: 1px; color: #cfe3d2; text-transform: uppercase; }
+
+  body.no-anim * { transition: none !important; animation: none !important; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<p id="status" role="status" aria-live="polite"></p>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
